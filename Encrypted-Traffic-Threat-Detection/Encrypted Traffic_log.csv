@@ -1,5 +1,0 @@
-packet_size,inter_arrival_time,direction
-1200,0.02,1
-800,0.01,-1
-1500,0.03,1
-600,0.005,-1
