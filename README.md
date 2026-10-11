@@ -1,139 +1,66 @@
+# Encrypted Traffic Threat Detection
 
-# 🔐 Encrypted Traffic Threat Detection with AI
+A working local Flask web app that classifies traffic metadata with a reproducible Random Forest model. It analyzes packet size, inter-arrival time and direction without reading decrypted payloads.
 
-This project leverages machine learning to detect threats in encrypted network traffic — without decrypting the data. It combines a Flask-based web interface with a Random Forest classifier trained on traffic metadata to provide real-time threat predictions.
+The bundled dataset has **four demonstration rows**. The app is suitable for demonstrating an upload-to-prediction pipeline, but this dataset cannot establish accuracy, false-positive rates or generalization to real attacks. Model probabilities are not calibrated threat confidence.
 
----
+## Run
 
-## 🚀 Project Overview
-
-Traditional security tools struggle to inspect encrypted traffic, leaving blind spots for attackers. This system analyzes metadata such as packet size, timing, and direction to identify malicious patterns using AI — all while preserving encryption.
-
----
-
-## 🧠 Features
-
-- 📤 Upload encrypted traffic logs via web interface  
-- ⚡ Real-time threat classification using AI  
-- 🔍 Backend powered by Random Forest model  
-- 📊 JSON-based output for easy integration  
-- 🧪 Sample dataset and training script included  
-
----
-
-## 🏗️ Architecture
-
-```
-[Web Interface] → [Flask API] → [AI Model]
-        ↑                            ↓
-[User Uploads CSV] ← [Threat Predictions Returned]
-```
-
----
-
-## 📁 Project Structure
-
-```
-Encrypted-Traffic-Threat-Detection/
-├── app.py                  # Flask backend
-├── train_model.py          # Model training script
-├── rf_model.pkl            # Trained Random Forest model
-├── traffic_data.csv        # Sample dataset
-├── templates/
-│   └── index.html          # Upload interface
-├── README.md               # Project documentation
-```
-
----
-
-## 📦 Requirements
-
-Install dependencies using pip:
+Python 3.10+:
 
 ```bash
-pip install Flask pandas scikit-learn joblib
-```
-
-Or use the included `requirements.txt`:
-
-```bash
-pip install -r requirements.txt
-```
-
----
-
-## 🧪 Dataset Format
-
-The model uses metadata features only:
-
-```csv
-packet_size,inter_arrival_time,direction,label
-1200,0.02,1,0
-800,0.01,-1,1
-...
-```
-
-- `label`: 0 = benign, 1 = malicious  
-- For predictions, omit the `label` column
-
----
-
-## 🧠 Model Training
-
-Run the training script to generate `rf_model.pkl`:
-
-```bash
-python train_model.py
-```
-
-This uses `traffic_data.csv` to train a Random Forest classifier.
-
----
-
-## 🌐 Running the Web App
-
-Start the Flask server:
-
-```bash
+python -m venv .venv
+# Linux/macOS:
+source .venv/bin/activate
+# Windows PowerShell: .venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
 python app.py
 ```
 
-Visit [http://localhost:5000](http://localhost:5000) in your browser.  
-Upload a CSV file with traffic metadata to receive threat predictions.
+Open http://127.0.0.1:5000. A fresh checkout trains the demo classifier in memory on startup, so no missing model file or manual training step blocks the interface. Paths are resolved relative to the source files.
 
----
+To run alongside TruthLens on a different port:
 
-## 📊 Sample Output
-
-```json
-[
-  {"packet_size":1200,"inter_arrival_time":0.02,"direction":1,"Threat":0},
-  {"packet_size":800,"inter_arrival_time":0.01,"direction":-1,"Threat":1}
-]
+```bash
+python -m flask --app app run --host 127.0.0.1 --port 5001
 ```
 
----
+## CSV format
 
-## 📌 Future Enhancements
+```csv
+packet_size,inter_arrival_time,direction
+1200,0.02,1
+800,0.01,-1
+```
 
-- Add LSTM or CNN models for deeper pattern recognition  
-- Visualize predictions in a dashboard  
-- Integrate with live traffic monitoring tools  
-- Deploy to cloud platforms (Heroku, AWS, Render)
+- `packet_size`: 1–65,535 bytes.
+- `inter_arrival_time`: nonnegative seconds.
+- `direction`: `-1` or `1` using a consistent traffic-direction convention.
+- An optional `label` column is ignored during prediction; feature column order does not matter.
+- Upload limits: 2 MiB and 10,000 records. Missing columns, nonnumeric values, NaN, infinity and unexpected columns return useful JSON validation errors.
 
----
+The page displays predictions and allows downloading the complete JSON result. The table displays the first 200 records.
 
-## 📄 License
+## Train on your own data
 
-This project is open-source under the MIT License.  
-Feel free to fork, modify, and contribute!
+Add `label`, where 0 = benign and 1 = malicious. Both classes are required.
 
----
+```bash
+python train_model.py --data /path/to/labeled-traffic.csv
+```
 
-## 🙌 Acknowledgments
+This writes `rf_model.pkl`, which the app loads on its next startup. Only load model files you created or trust: pickle-based model artifacts can execute code. Retrain after changing scikit-learn versions. The model uses a fixed random seed; evaluate with independent, representative traffic before operational use.
 
-Developed by [Yogi-TechoMass](https://github.com/Yogi-TechoMass)  
-Inspired by the need for smarter encrypted traffic inspection in cybersecurity.
-Need help to use this tool,Click here:https://copilot.microsoft.com/shares/VFctKdghYxnDiVUJXVYmb
+## API and tests
 
----
+- `GET /api/health`: startup health.
+- `POST /predict`: multipart form upload in the `file` field; returns a JSON array containing metadata, `Threat` (0/1), and `malicious_probability`.
+
+```bash
+python -m pip install -r requirements-dev.txt
+python -m pytest -q
+```
+
+GitHub Actions checks Python 3.10 and 3.12. Tests cover fresh-start prediction, training, column order, input validation and upload limits.
+
+Original project attribution: Yogi-TechoMass.
